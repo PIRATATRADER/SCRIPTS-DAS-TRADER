@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GUARIDA QUANT ENGINE</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ── TOPBAR ─────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <span class="brand-icon">⬡</span>
+        <div class="brand-text">
+          <span class="brand-name">GUARIDA</span>
+          <span class="brand-sub">QUANT ENGINE</span>
+        </div>
+      </div>
+      <div class="market-chip" id="marketChip">
+        <span class="chip-dot" id="chipDot"></span>
+        <span class="chip-label" id="chipLabel">CHECKING MARKET…</span>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <div class="scan-stat">
+        <span class="scan-val" id="cntScanned">—</span>
+        <span class="scan-lbl">SCANNED</span>
+      </div>
+      <div class="scan-divider"></div>
+      <div class="scan-stat accent-green">
+        <span class="scan-val" id="cntSignals">—</span>
+        <span class="scan-lbl">SIGNALS</span>
+      </div>
+      <div class="scan-divider"></div>
+      <div class="scan-stat accent-dim">
+        <span class="scan-val" id="cntUpdated">—</span>
+        <span class="scan-lbl">UPDATED</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="countdown-wrap">
+        <span class="countdown-lbl">NEXT SCAN</span>
+        <span class="countdown-val" id="countdown">30s</span>
+      </div>
+      <button class="btn-scan" id="btnScan" onclick="manualRefresh()">
+        <span class="btn-scan-icon">▶</span> SCAN NOW
+      </button>
+    </div>
+  </header>
+
+  <!-- ── DEMO BANNER (shown when no API key) ────────────── -->
+  <div class="demo-banner" id="demoBanner">
+    <span class="demo-icon">⚡</span>
+    <span>DEMO MODE — No API key detected. Configure your Polygon.io key in <code>script.js</code> → <code>CONFIG.API_KEY</code></span>
+    <button onclick="document.getElementById('demoBanner').style.display='none'">✕</button>
+  </div>
+
+  <!-- ── FILTER STRIP ───────────────────────────────────── -->
+  <div class="filter-strip">
+    <div class="filter-group">
+      <label class="filter-label">GAP MIN %</label>
+      <input class="filter-input" type="number" id="filterGap" value="20" min="0" max="1000" step="1" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">PM VOL MIN</label>
+      <input class="filter-input" type="number" id="filterVolume" value="500000" min="0" step="50000" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">PRICE MIN $</label>
+      <input class="filter-input" type="number" id="filterPriceMin" value="0.25" min="0" step="0.05" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">PRICE MAX $</label>
+      <input class="filter-input" type="number" id="filterPriceMax" value="12" min="0" step="0.5" />
+    </div>
+    <div class="filter-group search-group">
+      <label class="filter-label">SEARCH TICKER</label>
+      <input class="filter-input" type="text" id="searchTicker" placeholder="e.g. ABCD" oninput="liveSearch()" />
+    </div>
+    <button class="btn-apply" onclick="applyFilters()">APPLY</button>
+  </div>
+
+  <!-- ── MAIN LAYOUT ────────────────────────────────────── -->
+  <main class="main-layout" id="mainLayout">
+
+    <!-- Screener Table -->
+    <section class="screener-section">
+      <div class="section-header">
+        <span class="section-title">PREMARKET SIGNALS</span>
+        <span class="section-meta">NASDAQ · NYSE · <span id="statusMsg">Waiting for scan…</span></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="screener-table" id="screenerTable">
+          <thead>
+            <tr>
+              <th class="th-sortable" onclick="sortBy('ticker')">
+                TICKER <span class="sort-arrow" id="sa-ticker">⇅</span>
+              </th>
+              <th class="th-sortable" onclick="sortBy('price')">
+                PRICE <span class="sort-arrow" id="sa-price">⇅</span>
+              </th>
+              <th class="th-sortable" onclick="sortBy('gap')">
+                GAP % <span class="sort-arrow" id="sa-gap">⇅</span>
+              </th>
+              <th class="th-sortable" onclick="sortBy('volume')">
+                PM VOLUME <span class="sort-arrow" id="sa-volume">⇅</span>
+              </th>
+              <th>PREV CLOSE</th>
+              <th>CHANGE $</th>
+              <th>EXCH</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr class="empty-row">
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-icon">◈</div>
+                  <div>Press SCAN NOW to start screening</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Detail Panel -->
+    <aside class="detail-panel" id="detailPanel">
+      <div class="panel-header">
+        <div class="panel-ticker-wrap">
+          <span class="panel-ticker" id="panelTicker">—</span>
+          <span class="panel-exchange" id="panelExchange"></span>
+        </div>
+        <div class="panel-price-wrap">
+          <span class="panel-price" id="panelPrice">—</span>
+          <span class="panel-chg" id="panelChgPct">—</span>
+        </div>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+
+      <div class="panel-body" id="panelBody">
+        <div class="panel-placeholder">
+          <span class="ph-icon">◈</span>
+          <span>Click a ticker to load details</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ── STATUS BAR ─────────────────────────────────────── -->
+  <footer class="statusbar">
+    <span id="statusLeft">GUARIDA QUANT ENGINE v1.0</span>
+    <span id="statusRight">POLYGON.IO · REST API</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
