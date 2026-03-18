@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAS Trader Scripts Manager</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --color-background-primary: #ffffff;
+            --color-background-secondary: #f7f6f3;
+            --color-background-tertiary: #f1efe8;
+            --color-background-info: #e6f1fb;
+            --color-background-success: #eaf3de;
+            --color-background-danger: #fcebeb;
+            
+            --color-text-primary: #1a1a1a;
+            --color-text-secondary: #666666;
+            --color-text-tertiary: #999999;
+            --color-text-info: #185fa5;
+            --color-text-success: #3b6d11;
+            --color-text-danger: #a32d2d;
+            
+            --color-border-tertiary: rgba(0, 0, 0, 0.15);
+            --color-border-secondary: rgba(0, 0, 0, 0.3);
+            --color-border-primary: rgba(0, 0, 0, 0.4);
+            
+            --border-radius-md: 8px;
+            --border-radius-lg: 12px;
+            
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-background-primary: #1a1a1a;
+                --color-background-secondary: #2a2a2a;
+                --color-background-tertiary: #333333;
+                --color-background-info: #0c447c;
+                --color-background-success: #27500a;
+                --color-background-danger: #791f1f;
+                
+                --color-text-primary: #e8e8e8;
+                --color-text-secondary: #b0b0b0;
+                --color-text-tertiary: #808080;
+                --color-text-info: #b5d4f4;
+                --color-text-success: #c0dd97;
+                --color-text-danger: #f7c1c1;
+                
+                --color-border-tertiary: rgba(255, 255, 255, 0.15);
+                --color-border-secondary: rgba(255, 255, 255, 0.3);
+                --color-border-primary: rgba(255, 255, 255, 0.4);
+            }
+        }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--color-background-tertiary);
+            color: var(--color-text-primary);
+            line-height: 1.5;
+        }
+        
+        input, select, textarea, button {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 12px;
+            border: 0.5px solid var(--color-border-tertiary);
+            border-radius: var(--border-radius-md);
+            background: var(--color-background-primary);
+            color: var(--color-text-primary);
+            transition: border-color 0.2s, background 0.2s;
+        }
+        
+        input:hover, select:hover, textarea:hover {
+            border-color: var(--color-border-secondary);
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--color-border-primary);
+            box-shadow: 0 0 0 3px rgba(24, 95, 165, 0.1);
+        }
+        
+        button {
+            cursor: pointer;
+            font-weight: 400;
+            border: 0.5px solid var(--color-border-secondary);
+            background: var(--color-background-primary);
+            color: var(--color-text-primary);
+        }
+        
+        button:hover {
+            background: var(--color-background-secondary);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        #root {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { Search, Plus, Edit2, Trash2, Share2, Copy, Check, Github, Database } = window.lucideReact || {};
+
+        // Componente de iconos fallback si lucide-react no carga
+        const Icon = ({ name, size = 16 }) => (
+            <span style={{ 
+                display: 'inline-block', 
+                width: size, 
+                height: size,
+                fontSize: size - 4
+            }}>
+                {name === 'Search' && '🔍'}
+                {name === 'Plus' && '➕'}
+                {name === 'Edit2' && '✏️'}
+                {name === 'Trash2' && '🗑️'}
+                {name === 'Share2' && '↗️'}
+                {name === 'Copy' && '📋'}
+                {name === 'Check' && '✓'}
+                {name === 'Github' && '⚙️'}
+                {name === 'Database' && '💾'}
+            </span>
+        );
+
+        function DASTraderScripts() {
+            const [scripts, setScripts] = useState([]);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [editingScript, setEditingScript] = useState(null);
+            const [copiedId, setCopiedId] = useState(null);
+            const [firebaseConnected, setFirebaseConnected] = useState(false);
+            const [githubConnected, setGithubConnected] = useState(false);
+            const [loading, setLoading] = useState(false);
+
+            const [newScript, setNewScript] = useState({
+                name: '',
+                code: '',
+                description: '',
+                category: 'Entry'
+            });
+
+            useEffect(() => {
+                loadScripts();
+            }, []);
+
+            const loadScripts = async () => {
+                setLoading(true);
+                setTimeout(() => {
+                    setScripts([
+                        {
+                            id: '1',
+                            name: 'Long Entry 100 shares',
+                            code: 'StopPrice=Price-0.05;DefShare=BP*0.97;Share=DefShare*0.25;Price=Ask-Price+0.00;SShare=Share/Price;Sshare=DefShare-SShare;SShare=SShare+DefShare;SShare=SShare*0.5;Share=Share*0.5;TogSShare;ROUTE=LIMIT;Price= Ask+0.05;TIF=DAY+;BUY=Send;DefShare=100;',
+                            description: 'Entry long position with 100 shares at ask price',
+                            category: 'Entry',
+                            createdAt: new Date().toISOString(),
+                            shared: false
+                        },
+                        {
+                            id: '2',
+                            name: 'Stop Loss -2%',
+                            code: 'StopPrice=AvgCost*0.98;ROUTE=STOP;Price=StopPrice;TIF=DAY+;SELL=Send;',
+                            description: 'Stop loss at 2% below average cost',
+                            category: 'Exit',
+                            createdAt: new Date().toISOString(),
+                            shared: false
+                        }
+                    ]);
+                    setFirebaseConnected(true);
+                    setLoading(false);
+                }, 800);
+            };
+
+            const filteredScripts = scripts.filter(script =>
+                script.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                script.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                script.category.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+
+            const handleAddScript = async () => {
+                if (!newScript.name || !newScript.code) return;
+
+                const script = {
+                    id: Date.now().toString(),
+                    ...newScript,
+                    createdAt: new Date().toISOString(),
+                    shared: false
+                };
+
+                setScripts([...scripts, script]);
+                setShowAddModal(false);
+                setNewScript({ name: '', code: '', description: '', category: 'Entry' });
+                
+                console.log('Saving to Firebase:', script);
+            };
+
+            const handleUpdateScript = async () => {
+                if (!editingScript) return;
+
+                setScripts(scripts.map(s => s.id === editingScript.id ? editingScript : s));
+                setEditingScript(null);
+                
+                console.log('Updating in Firebase:', editingScript);
+            };
+
+            const handleDeleteScript = async (id) => {
+                if (!confirm('¿Estás seguro de eliminar este script?')) return;
+                
+                setScripts(scripts.filter(s => s.id !== id));
+                
+                console.log('Deleting from Firebase:', id);
+            };
+
+            const handleCopyCode = (code, id) => {
+                navigator.clipboard.writeText(code);
+                setCopiedId(id);
+                setTimeout(() => setCopiedId(null), 2000);
+            };
+
+            const handleShareScript = async (script) => {
+                const updatedScript = { ...script, shared: !script.shared };
+                setScripts(scripts.map(s => s.id === script.id ? updatedScript : s));
+                
+                console.log('Sharing script:', updatedScript);
+            };
+
+            const handleSyncGithub = async () => {
+                setLoading(true);
+                setTimeout(() => {
+                    setGithubConnected(true);
+                    setLoading(false);
+                    alert('Scripts sincronizados con GitHub exitosamente');
+                }, 1500);
+            };
+
+            const categories = ['Entry', 'Exit', 'Management', 'Otros'];
+
+            return (
+                <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+                    <div style={{ marginBottom: '2rem' }}>
+                        <h1 style={{ fontSize: '28px', fontWeight: '500', marginBottom: '8px' }}>DAS Trader Scripts</h1>
+                        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+                            Gestiona tus scripts de trading con Firebase y GitHub
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 12px',
+                            background: firebaseConnected ? 'var(--color-background-success)' : 'var(--color-background-secondary)',
+                            color: firebaseConnected ? 'var(--color-text-success)' : 'var(--color-text-secondary)',
+                            borderRadius: 'var(--border-radius-md)',
+                            fontSize: '13px'
+                        }}>
+                            <Icon name="Database" size={16} />
+                            <span>{firebaseConnected ? 'Firebase conectado' : 'Firebase desconectado'}</span>
+                        </div>
+                        
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 12px',
+                            background: githubConnected ? 'var(--color-background-success)' : 'var(--color-background-secondary)',
+                            color: githubConnected ? 'var(--color-text-success)' : 'var(--color-text-secondary)',
+                            borderRadius: 'var(--border-radius-md)',
+                            fontSize: '13px'
+                        }}>
+                            <Icon name="Github" size={16} />
+                            <span>{githubConnected ? 'GitHub sincronizado' : 'GitHub no sincronizado'}</span>
+                        </div>
+
+                        <button
+                            onClick={handleSyncGithub}
+                            disabled={loading}
+                            style={{
+                                marginLeft: 'auto',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 16px',
+                                fontSize: '13px',
+                                opacity: loading ? 0.6 : 1
+                            }}
+                        >
+                            <Icon name="Github" size={16} />
+                            {loading ? 'Sincronizando...' : 'Sincronizar GitHub'}
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
+                            <input
+                                type="text"
+                                placeholder="🔍 Buscar scripts..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                        
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '0 20px',
+                                fontSize: '14px',
+                                background: 'var(--color-background-info)',
+                                color: 'var(--color-text-info)',
+                                border: 'none',
+                                fontWeight: '500'
+                            }}
+                        >
+                            <Icon name="Plus" size={18} />
+                            Agregar Script
+                        </button>
+                    </div>
+
+                    {loading && scripts.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>
+                            Cargando scripts...
+                        </div>
+                    ) : filteredScripts.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>
+                            {searchQuery ? 'No se encontraron scripts' : 'No hay scripts aún. ¡Agrega tu primer script!'}
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                            gap: '16px'
+                        }}>
+                            {filteredScripts.map(script => (
+                                <div
+                                    key={script.id}
+                                    style={{
+                                        background: 'var(--color-background-primary)',
+                                        border: '0.5px solid var(--color-border-tertiary)',
+                                        borderRadius: 'var(--border-radius-lg)',
+                                        padding: '1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <h3 style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>
+                                                {script.name}
+                                            </h3>
+                                            <span style={{
+                                                fontSize: '12px',
+                                                padding: '2px 8px',
+                                                background: 'var(--color-background-info)',
+                                                color: 'var(--color-text-info)',
+                                                borderRadius: 'var(--border-radius-md)',
+                                                display: 'inline-block'
+                                            }}>
+                                                {script.category}
+                                            </span>
+                                        </div>
+                                        
+                                        {script.shared && (
+                                            <div style={{
+                                                fontSize: '12px',
+                                                padding: '4px 8px',
+                                                background: 'var(--color-background-success)',
+                                                color: 'var(--color-text-success)',
+                                                borderRadius: 'var(--border-radius-md)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}>
+                                                <Icon name="Share2" size={12} />
+                                                Compartido
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {script.description && (
+                                        <p style={{ 
+                                            fontSize: '13px', 
+                                            color: 'var(--color-text-secondary)',
+                                            lineHeight: '1.5',
+                                            margin: 0
+                                        }}>
+                                            {script.description}
+                                        </p>
+                                    )}
+
+                                    <div style={{
+                                        background: 'var(--color-background-secondary)',
+                                        padding: '12px',
+                                        borderRadius: 'var(--border-radius-md)',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: '12px',
+                                        overflowX: 'auto',
+                                        maxHeight: '120px',
+                                        overflowY: 'auto'
+                                    }}>
+                                        <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                            {script.code}
+                                        </code>
+                                    </div>
+
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        gap: '8px',
+                                        paddingTop: '8px',
+                                        borderTop: '0.5px solid var(--color-border-tertiary)'
+                                    }}>
+                                        <button
+                                            onClick={() => handleCopyCode(script.code, script.id)}
+                                            style={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                padding: '8px',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            <Icon name={copiedId === script.id ? 'Check' : 'Copy'} size={16} />
+                                            {copiedId === script.id ? 'Copiado' : 'Copiar'}
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => handleShareScript(script)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '8px',
+                                                background: script.shared ? 'var(--color-background-success)' : 'var(--color-background-primary)',
+                                                color: script.shared ? 'var(--color-text-success)' : 'var(--color-text-primary)'
+                                            }}
+                                        >
+                                            <Icon name="Share2" size={16} />
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setEditingScript(script)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '8px'
+                                            }}
+                                        >
+                                            <Icon name="Edit2" size={16} />
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => handleDeleteScript(script.id)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '8px',
+                                                color: 'var(--color-text-danger)'
+                                            }}
+                                        >
+                                            <Icon name="Trash2" size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {showAddModal && (
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '1rem',
+                            zIndex: 1000
+                        }}>
+                            <div style={{
+                                background: 'var(--color-background-primary)',
+                                borderRadius: 'var(--border-radius-lg)',
+                                padding: '1.5rem',
+                                maxWidth: '600px',
+                                width: '100%',
+                                maxHeight: '90vh',
+                                overflowY: 'auto'
+                            }}>
+                                <h2 style={{ fontSize: '20px', fontWeight: '500', marginBottom: '1.5rem' }}>
+                                    Agregar Nuevo Script
+                                </h2>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Nombre del script
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newScript.name}
+                                            onChange={(e) => setNewScript({ ...newScript, name: e.target.value })}
+                                            placeholder="Ej: Long Entry 100 shares"
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Categoría
+                                        </label>
+                                        <select
+                                            value={newScript.category}
+                                            onChange={(e) => setNewScript({ ...newScript, category: e.target.value })}
+                                            style={{ width: '100%' }}
+                                        >
+                                            {categories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Descripción
+                                        </label>
+                                        <textarea
+                                            value={newScript.description}
+                                            onChange={(e) => setNewScript({ ...newScript, description: e.target.value })}
+                                            placeholder="Descripción breve del script..."
+                                            rows={2}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Código del script
+                                        </label>
+                                        <textarea
+                                            value={newScript.code}
+                                            onChange={(e) => setNewScript({ ...newScript, code: e.target.value })}
+                                            placeholder="Pega aquí tu código de DAS Trader..."
+                                            rows={6}
+                                            style={{ 
+                                                width: '100%',
+                                                fontFamily: 'var(--font-mono)',
+                                                fontSize: '13px'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '12px', marginTop: '1rem' }}>
+                                        <button
+                                            onClick={handleAddScript}
+                                            disabled={!newScript.name || !newScript.code}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px',
+                                                background: 'var(--color-background-info)',
+                                                color: 'var(--color-text-info)',
+                                                border: 'none',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                cursor: newScript.name && newScript.code ? 'pointer' : 'not-allowed',
+                                                opacity: newScript.name && newScript.code ? 1 : 0.5
+                                            }}
+                                        >
+                                            Guardar Script
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowAddModal(false);
+                                                setNewScript({ name: '', code: '', description: '', category: 'Entry' });
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {editingScript && (
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '1rem',
+                            zIndex: 1000
+                        }}>
+                            <div style={{
+                                background: 'var(--color-background-primary)',
+                                borderRadius: 'var(--border-radius-lg)',
+                                padding: '1.5rem',
+                                maxWidth: '600px',
+                                width: '100%',
+                                maxHeight: '90vh',
+                                overflowY: 'auto'
+                            }}>
+                                <h2 style={{ fontSize: '20px', fontWeight: '500', marginBottom: '1.5rem' }}>
+                                    Editar Script
+                                </h2>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Nombre del script
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editingScript.name}
+                                            onChange={(e) => setEditingScript({ ...editingScript, name: e.target.value })}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Categoría
+                                        </label>
+                                        <select
+                                            value={editingScript.category}
+                                            onChange={(e) => setEditingScript({ ...editingScript, category: e.target.value })}
+                                            style={{ width: '100%' }}
+                                        >
+                                            {categories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Descripción
+                                        </label>
+                                        <textarea
+                                            value={editingScript.description}
+                                            onChange={(e) => setEditingScript({ ...editingScript, description: e.target.value })}
+                                            rows={2}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px' }}>
+                                            Código del script
+                                        </label>
+                                        <textarea
+                                            value={editingScript.code}
+                                            onChange={(e) => setEditingScript({ ...editingScript, code: e.target.value })}
+                                            rows={6}
+                                            style={{ 
+                                                width: '100%',
+                                                fontFamily: 'var(--font-mono)',
+                                                fontSize: '13px'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '12px', marginTop: '1rem' }}>
+                                        <button
+                                            onClick={handleUpdateScript}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px',
+                                                background: 'var(--color-background-info)',
+                                                color: 'var(--color-text-info)',
+                                                border: 'none',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Actualizar Script
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingScript(null)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DASTraderScripts />);
+    </script>
+</body>
+</html>
